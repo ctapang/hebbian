@@ -23,13 +23,21 @@ namespace caffe {
 	}
 
 	template <typename Dtype>
+	void HebbianConvLayer<Dtype>::Add_feedback(const int size, const Dtype* feedback,
+		Dtype* bottom) {
+		caffe_axpy<Dtype>(size, (Dtype)1., feedback, bottom);
+	}
+
+	template <typename Dtype>
 	void HebbianConvLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top) {
 		const Dtype* weight = this->blobs_[0]->cpu_data();
 		for (int i = 0; i < bottom.size(); ++i) {
-			const Dtype* bottom_data = bottom[i]->cpu_data();
+			const Dtype* feedback = bottom[i]->cpu_diff();
+			Dtype* bottom_data = bottom[i]->mutable_cpu_data();
 			Dtype* top_data = top[i]->mutable_cpu_data();
 			for (int n = 0; n < this->num_; ++n) {
+				Add_feedback(this->bottom_dim_, feedback + n * this->bottom_dim_, bottom_data + n * this->bottom_dim_);
 				this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight,
 					top_data + n * this->top_dim_);
 				if (this->bias_term_) {
@@ -43,8 +51,32 @@ namespace caffe {
 	template <typename Dtype>
 	void HebbianConvLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-		// backward: top to bottom
-		throw -1; // FIXME: this is unimplemented
+		const Dtype* weight = this->blobs_[0]->cpu_data();
+		Dtype* weight_diff = this->blobs_[0]->mutable_cpu_diff();
+		for (int i = 0; i < top.size(); ++i) {
+			const Dtype* top_diff = top[i]->cpu_diff(); // top_diff is set by layer above, which must be a pooling layer (in which it is "bottom_diff")
+			// Bias gradient, if necessary.
+			if (this->bias_term_ && this->param_propagate_down_[1]) {
+				Dtype* bias_diff = this->blobs_[1]->mutable_cpu_diff();
+				for (int n = 0; n < this->num_; ++n) {
+					this->backward_cpu_bias(bias_diff, top_diff + n * this->top_dim_);
+				}
+			}
+
+			if (this->param_propagate_down_[0] || propagate_down[i]) {
+				const Dtype* bottom_data = bottom[i]->cpu_data();
+				for (int n = 0; n < this->num_; ++n) {
+					// Hebbian learning (Oja's rule)
+					// why use top diff here instead of top data? because only pooling layer winner should "learn"
+					this->weight_cpu_gemm(bottom_data + n * this->bottom_dim_,
+						top_diff + n * this->top_dim_, weight_diff);
+					Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+					// feedback to bottom, temporarily store in bottom_diff.
+					this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
+						bottom_diff + n * this->bottom_dim_);
+				}
+			}
+		}
 	}
 
 	INSTANTIATE_CLASS(HebbianConvLayer);

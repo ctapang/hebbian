@@ -149,6 +149,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\include\caffe\test\test_caffe_main.hpp" />
     <ClInclude Include="..\..\include\caffe\test\test_gradient_check_util.hpp" />
+    <ClInclude Include="..\..\include\caffe\test\test_hebbian_check_util.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\libcaffe\libcaffe.vcxproj">

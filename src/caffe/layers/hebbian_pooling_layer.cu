@@ -19,6 +19,7 @@ namespace caffe {
 		if (!propagate_down[0]) {
 			return;
 		}
+		// The only difference between HebbianPoolingLayer and PoolingLayer is that top_data is fed back, instead of top_diff.
 		const Dtype* top_data = top[0]->gpu_data();
 		Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
 		const int count = bottom[0]->count();

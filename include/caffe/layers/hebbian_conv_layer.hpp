@@ -32,6 +32,8 @@ namespace caffe {
 	private:
 		void Add_feedback(const int size, const Dtype* feedback,
 			Dtype* bottom);
+		void Add_gpu_feedback(const int size, const Dtype* feedback,
+			Dtype* bottom);
 	};
 
 }

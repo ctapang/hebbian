@@ -223,6 +223,9 @@
     <ClInclude Include="..\..\include\caffe\test\test_gradient_check_util.hpp">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\caffe\test\test_hebbian_check_util.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
