@@ -7,6 +7,9 @@
 
 namespace caffe {
 
+// HebbianPoolingLayer derives from PoolingLayer.
+// It overrides only the Backward_cpu method.
+//
 template <typename Dtype>
 void HebbianPoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 	const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
