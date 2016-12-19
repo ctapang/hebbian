@@ -603,6 +603,10 @@ message ConvolutionParameter {
   // implementation; for input blobs with num_axes != 2, this option is
   // ignored and the ND implementation will be used.)
   optional bool force_nd_im2col = 17 [default = false];
+
+  // Feedback Gain
+  // Multiplier for feedback signals. (Only for Hebbian layers.)
+  optional float feedback_gain = 19 [default = 0.5];
 }
 
 message CropParameter {

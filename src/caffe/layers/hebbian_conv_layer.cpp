@@ -23,9 +23,9 @@ namespace caffe {
 	}
 
 	template <typename Dtype>
-	void HebbianConvLayer<Dtype>::Add_feedback(const int size, const Dtype* feedback,
+	void HebbianConvLayer<Dtype>::Add_feedback(const int size, const Dtype gain, const Dtype* feedback,
 		Dtype* bottom) {
-		caffe_axpy<Dtype>(size, (Dtype)1., feedback, bottom);
+		caffe_axpy<Dtype>(size, gain, feedback, bottom);
 	}
 
 	template <typename Dtype>
@@ -37,7 +37,7 @@ namespace caffe {
 			Dtype* bottom_data = bottom[i]->mutable_cpu_data();
 			Dtype* top_data = top[i]->mutable_cpu_data();
 			for (int n = 0; n < this->num_; ++n) {
-				Add_feedback(this->bottom_dim_, feedback + n * this->bottom_dim_, bottom_data + n * this->bottom_dim_);
+				Add_feedback(this->bottom_dim_, this->feedback_gain_, feedback + n * this->bottom_dim_, bottom_data + n * this->bottom_dim_);
 				this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight,
 					top_data + n * this->top_dim_);
 				if (this->bias_term_) {
