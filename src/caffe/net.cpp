@@ -305,6 +305,18 @@ void Net<Dtype>::FilterNet(const NetParameter& param,
 }
 
 template <typename Dtype>
+void Net<Dtype>::ClearFeedback() {
+	for (int layer = 0; layer < blob_need_backward_.size(); layer++) {
+		if (blob_need_backward_[layer]) {
+			for (int c = 0; c < bottom_vecs_[layer].size(); c++) {
+				Blob<Dtype>* feedback = bottom_vecs_[layer][c];
+				caffe_set(feedback->count(), Dtype(0), feedback->mutable_cpu_diff());
+			}
+		}
+	}
+}
+
+template <typename Dtype>
 bool Net<Dtype>::StateMeetsRule(const NetState& state,
     const NetStateRule& rule, const string& layer_name) {
   // Check whether the rule is broken due to phase.

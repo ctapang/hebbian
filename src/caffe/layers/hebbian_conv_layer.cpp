@@ -53,6 +53,8 @@ namespace caffe {
 		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
 		const Dtype* weight = this->blobs_[0]->cpu_data();
 		Dtype* weight_diff = this->blobs_[0]->mutable_cpu_diff();
+		Blob<Dtype>* feedback = new Blob<Dtype>(bottom[0]->shape());
+		Dtype* feedback_data = feedback->mutable_cpu_data();
 		for (int i = 0; i < top.size(); ++i) {
 			const Dtype* top_diff = top[i]->cpu_diff(); // top_diff is set by layer above, which must be a pooling layer (in which it is "bottom_diff")
 			// Bias gradient, if necessary.
@@ -65,19 +67,25 @@ namespace caffe {
 
 			if (this->param_propagate_down_[0] || propagate_down[i]) {
 				const Dtype* bottom_data = bottom[i]->cpu_data();
+				Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+				caffe_set(feedback->count(), Dtype(0), feedback_data);
 				for (int n = 0; n < this->num_; ++n) {
 					// Hebbian learning (Oja's rule)
-					// why use top diff here instead of top data? because only pooling layer winner should "learn"
-					this->weight_cpu_gemm(bottom_data + n * this->bottom_dim_,
-						top_diff + n * this->top_dim_, weight_diff);
-					Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
-					// feedback to bottom, temporarily store in bottom_diff.
+					// feedback to bottom, temporarily store in bottom_diff (for use in Oja's rule below, and also in forward above).
+					// bottom_diff = (top_diff X weight)
 					this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
 						bottom_diff + n * this->bottom_dim_);
+					// Oja's rule: weight_diff = top_diff * (bottom_data - bottom_diff) where bottom_diff = (top_diff X weight)  <-- see above statement
+					// (it's negative because the last step in Update subtracts the weight_diff from the current weight.)
+					caffe_axpy(this->bottom_dim_, Dtype(-1.), bottom_diff + n * this->bottom_dim_, feedback_data + n * this->bottom_dim_);
+					caffe_axpy(this->bottom_dim_, Dtype(1.), bottom_data + n * this->bottom_dim_, feedback_data + n * this->bottom_dim_);
+					// why use top diff here instead of top data? because only pooling layer winner should "learn"
+					this->weight_cpu_gemm(feedback_data + n * this->bottom_dim_,	top_diff + n * this->top_dim_, weight_diff);
 				}
 			}
 		}
 	}
 
 	INSTANTIATE_CLASS(HebbianConvLayer);
+	REGISTER_LAYER_CLASS(HebbianConv);
 }

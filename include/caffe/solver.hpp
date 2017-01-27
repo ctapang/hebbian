@@ -56,7 +56,8 @@ class Solver {
   // in a non-zero iter number to resume training for a pre-trained net.
   virtual void Solve(const char* resume_file = NULL);
   inline void Solve(const string resume_file) { Solve(resume_file.c_str()); }
-  void Step(int iters);
+	// Make Step overridable for Hebbian learning
+  virtual void Step(int iters);
   // The Restore method simply dispatches to one of the
   // RestoreSolverStateFrom___ protected methods. You should implement these
   // methods to restore the state from the appropriate snapshot type.
@@ -75,13 +76,11 @@ class Solver {
   int iter() { return iter_; }
 
   // Invoked at specific points during an iteration
+	// Make methods public and add Solver as friend for Hebbian learning
   class Callback {
-   protected:
+   public:
     virtual void on_start() = 0;
     virtual void on_gradients_ready() = 0;
-
-    template <typename T>
-    friend class Solver;
   };
   const vector<Callback*>& callbacks() const { return callbacks_; }
   void add_callback(Callback* value) {

@@ -65,11 +65,10 @@ void PoolingLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       << "With Global_pooling: true; only pad = 0 and stride = 1";
   }
   if (pad_h_ != 0 || pad_w_ != 0) {
-    CHECK(this->layer_param_.pooling_param().pool()
-        == PoolingParameter_PoolMethod_AVE
-        || this->layer_param_.pooling_param().pool()
-        == PoolingParameter_PoolMethod_MAX)
-        << "Padding implemented only for average and max pooling.";
+    CHECK(this->layer_param_.pooling_param().pool() == PoolingParameter_PoolMethod_AVE
+        || this->layer_param_.pooling_param().pool() == PoolingParameter_PoolMethod_MAX
+				|| this->layer_param_.pooling_param().pool() == PoolingParameter_PoolMethod_HEBBIAN)
+				<< "Padding implemented only for average and max pooling.";
     CHECK_LT(pad_h_, kernel_h_);
     CHECK_LT(pad_w_, kernel_w_);
   }
@@ -109,8 +108,8 @@ void PoolingLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     top[1]->ReshapeLike(*top[0]);
   }
   // If max pooling, we will initialize the vector index part.
-  if (this->layer_param_.pooling_param().pool() ==
-      PoolingParameter_PoolMethod_MAX && top.size() == 1) {
+  if ((this->layer_param_.pooling_param().pool() == PoolingParameter_PoolMethod_MAX || 
+		this->layer_param_.pooling_param().pool() == PoolingParameter_PoolMethod_HEBBIAN) && top.size() == 1) {
     max_idx_.Reshape(bottom[0]->num(), channels_, pooled_height_,
         pooled_width_);
   }
@@ -138,7 +137,8 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // loop to save time, although this results in more code.
   switch (this->layer_param_.pooling_param().pool()) {
   case PoolingParameter_PoolMethod_MAX:
-    // Initialize
+	case PoolingParameter_PoolMethod_HEBBIAN:
+		// Initialize
     if (use_top_mask) {
       top_mask = top[1]->mutable_cpu_data();
       caffe_set(top_count, Dtype(-1), top_mask);
@@ -160,19 +160,19 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
             wstart = max(wstart, 0);
             const int pool_index = ph * pooled_width_ + pw;
             for (int h = hstart; h < hend; ++h) {
-              for (int w = wstart; w < wend; ++w) {
-                const int index = h * width_ + w;
-                if (bottom_data[index] > top_data[pool_index]) {
-                  top_data[pool_index] = bottom_data[index];
-                  if (use_top_mask) {
-                    top_mask[pool_index] = static_cast<Dtype>(index);
-                  } else {
-                    mask[pool_index] = index;
-                  }
-                }
+							for (int w = wstart; w < wend; ++w) {
+								const int index = h * width_ + w;
+								if (bottom_data[index] > top_data[pool_index]) {
+									top_data[pool_index] = bottom_data[index];
+									if (use_top_mask) {
+										top_mask[pool_index] = static_cast<Dtype>(index);
+									} else {
+										mask[pool_index] = index;
+									}
+								}
               }
             }
-          }
+					}
         }
         // compute offset
         bottom_data += bottom[0]->offset(0, 1);
@@ -221,7 +221,7 @@ void PoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   case PoolingParameter_PoolMethod_STOCHASTIC:
     NOT_IMPLEMENTED;
     break;
-  default:
+	default:
     LOG(FATAL) << "Unknown pooling method.";
   }
 }
@@ -301,7 +301,46 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   case PoolingParameter_PoolMethod_STOCHASTIC:
     NOT_IMPLEMENTED;
     break;
-  default:
+	case PoolingParameter_PoolMethod_HEBBIAN:
+		// The main loop
+		if (use_top_mask) {
+			top_mask = top[1]->cpu_data();
+		}
+		else {
+			mask = max_idx_.cpu_data();
+		}
+		for (int n = 0; n < top[0]->num(); ++n) {
+			for (int ph = 0; ph < pooled_height_; ++ph) {
+				for (int pw = 0; pw < pooled_width_; ++pw) {
+					const int index = ph * pooled_width_ + pw;
+					Dtype max = 0;
+					for (int c = 0; c < channels_; ++c) {
+						const int top_offset = index + top[0]->offset(0, c);
+						const int bottom_index = (use_top_mask ? top_mask[top_offset] : mask[top_offset]) + bottom[0]->offset(0, c);
+						Dtype output = top_diff[top_offset];
+						if (max < output) {
+							max = output;
+							bottom_diff[bottom_index] = output;
+						}
+					}
+					if (max > 0) {
+						for (int c = 0; c < channels_; ++c) {
+							const int top_offset = index + top[0]->offset(0, c);
+							const int bottom_index = (use_top_mask ? top_mask[top_offset] : mask[top_offset]) + bottom[0]->offset(0, c);
+							if (max > top_diff[top_offset]) {
+								bottom_diff[bottom_index] = 0; // only the winner can feed back
+							}
+							//else
+							//{
+							//	LOG_IF(INFO, Caffe::root_solver()) << "Winner: " << c << " pool w: " << pw << " pool h: " << ph;
+							//}
+						}
+					}
+				}
+			}
+		}
+		break;
+	default:
     LOG(FATAL) << "Unknown pooling method.";
   }
 }

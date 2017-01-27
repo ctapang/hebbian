@@ -47,7 +47,9 @@ void caffe_cpu_gemv<double>(const CBLAS_TRANSPOSE TransA, const int M,
 
 template <>
 void caffe_axpy<float>(const int N, const float alpha, const float* X,
-    float* Y) { cblas_saxpy(N, alpha, X, 1, Y, 1); }
+    float* Y) { 
+	cblas_saxpy(N, alpha, X, 1, Y, 1);
+}
 
 template <>
 void caffe_axpy<double>(const int N, const double alpha, const double* X,

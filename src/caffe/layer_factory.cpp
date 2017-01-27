@@ -11,6 +11,7 @@
 #include "caffe/layers/lrn_layer.hpp"
 #include "caffe/layers/pooling_layer.hpp"
 #include "caffe/layers/relu_layer.hpp"
+#include "caffe/layers/hebbian_relu_layer.hpp"
 #include "caffe/layers/sigmoid_layer.hpp"
 #include "caffe/layers/softmax_layer.hpp"
 #include "caffe/layers/tanh_layer.hpp"
@@ -168,6 +169,31 @@ shared_ptr<Layer<Dtype> > GetReLULayer(const LayerParameter& param) {
 }
 
 REGISTER_LAYER_CREATOR(ReLU, GetReLULayer);
+
+// Get hebbian relu layer according to engine.
+template <typename Dtype>
+shared_ptr<Layer<Dtype> > GetHebbianReLULayer(const LayerParameter& param) {
+	ReLUParameter_Engine engine = param.relu_param().engine();
+	if (engine == ReLUParameter_Engine_DEFAULT) {
+		engine = ReLUParameter_Engine_CAFFE;
+#ifdef USE_CUDNN
+		engine = ReLUParameter_Engine_CUDNN;
+#endif
+	}
+	if (engine == ReLUParameter_Engine_CAFFE) {
+		return shared_ptr<Layer<Dtype> >(new HebbianReLULayer<Dtype>(param));
+#ifdef USE_CUDNN
+	}
+	else if (engine == ReLUParameter_Engine_CUDNN) {
+		return shared_ptr<Layer<Dtype> >(new CuDNNReLULayer<Dtype>(param));
+#endif
+	}
+	else {
+		LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
+	}
+}
+
+REGISTER_LAYER_CREATOR(HebbianReLU, GetHebbianReLULayer);
 
 // Get sigmoid layer according to engine.
 template <typename Dtype>
