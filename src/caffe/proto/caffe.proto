@@ -606,7 +606,7 @@ message ConvolutionParameter {
 
   // Feedback Gain
   // Multiplier for feedback signals. (Only for Hebbian layers.)
-  optional float feedback_gain = 19 [default = 0.5];
+  optional float feedback_gain = 19 [default = 0.0];
 }
 
 message CropParameter {
