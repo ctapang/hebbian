@@ -357,7 +357,7 @@ Dtype HebbianChecker<Dtype>::GetLossUsingOjasRule(
 	}
 	else if (blobToCheck == biasBlob)
 	{
-		return (topChan == feature) ? 1.0 : 0;
+		return (topChan == feature) ? bottomBVec.size() : 0;
 	}
 	else {
 		// bottom diffs (feedback)

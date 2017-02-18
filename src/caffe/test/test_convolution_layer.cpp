@@ -1364,6 +1364,7 @@ TYPED_TEST(HebbianConvolutionLayerTest, TestGradient) {
 		this->blob_top_vec_);
 }
 
+/*
 TYPED_TEST(HebbianConvolutionLayerTest, TestDilatedGradient) {
 	typedef typename TypeParam::Dtype Dtype;
 	LayerParameter layer_param;
@@ -1415,6 +1416,7 @@ TYPED_TEST(HebbianConvolutionLayerTest, TestGradient3D) {
 	checker.CheckHebbianExhaustive(&layer, this->blob_bottom_vec_,
 		this->blob_top_vec_);
 }
+*/
 
 TYPED_TEST(HebbianConvolutionLayerTest, Test1x1Gradient) {
 	typedef typename TypeParam::Dtype Dtype;
@@ -1434,6 +1436,7 @@ TYPED_TEST(HebbianConvolutionLayerTest, Test1x1Gradient) {
 		this->blob_top_vec_);
 }
 
+/*
 TYPED_TEST(HebbianConvolutionLayerTest, TestGradientGroup) {
 	typedef typename TypeParam::Dtype Dtype;
 	LayerParameter layer_param;
@@ -1450,7 +1453,7 @@ TYPED_TEST(HebbianConvolutionLayerTest, TestGradientGroup) {
 	checker.CheckHebbianExhaustive(&layer, this->blob_bottom_vec_,
 		this->blob_top_vec_);
 }
-
+*/
 
 #ifdef USE_CUDNN
 
