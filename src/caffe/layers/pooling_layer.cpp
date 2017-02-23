@@ -320,7 +320,7 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 						Dtype output = top_diff[top_offset];
 						if (max < output) {
 							max = output;
-							bottom_diff[bottom_index] = output;
+							bottom_diff[bottom_index] = 1.0;
 						}
 					}
 					if (max > 0) {
