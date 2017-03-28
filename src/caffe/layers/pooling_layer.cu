@@ -166,7 +166,8 @@ void PoolingLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* top_mask = NULL;
   switch (this->layer_param_.pooling_param().pool()) {
   case PoolingParameter_PoolMethod_MAX:
-    if (use_top_mask) {
+	case PoolingParameter_PoolMethod_HEBBIAN:
+		if (use_top_mask) {
       top_mask = top[1]->mutable_gpu_data();
     } else {
       mask = max_idx_.mutable_gpu_data();

@@ -23,9 +23,9 @@ namespace caffe {
 	}
 
 	template <typename Dtype>
-	void HebbianConvLayer<Dtype>::Add_feedback(const int size, const Dtype gain, const Dtype* feedback,
-		Dtype* bottom) {
-		caffe_axpy<Dtype>(size, gain, feedback, bottom);
+	void HebbianConvLayer<Dtype>::Add_feedback(const int size, const Dtype gain, const Dtype* bottom,
+		Dtype* feedback) {
+		caffe_axpy<Dtype>(size, gain, bottom, feedback);
 	}
 
 	template <typename Dtype>
@@ -33,13 +33,14 @@ namespace caffe {
 		const vector<Blob<Dtype>*>& top) {
 		const Dtype* weight = this->blobs_[0]->cpu_data();
 		for (int i = 0; i < bottom.size(); ++i) {
-			const Dtype* feedback = bottom[i]->cpu_diff();
-			Dtype* bottom_data = bottom[i]->mutable_cpu_data();
+			Dtype* feedback = bottom[i]->mutable_cpu_diff();
+			const Dtype* bottom_data = bottom[i]->cpu_data();
 			Dtype* top_data = top[i]->mutable_cpu_data();
 			for (int n = 0; n < this->num_; ++n) {
-				Add_feedback(this->bottom_dim_, this->feedback_gain_, feedback + n * this->bottom_dim_, bottom_data + n * this->bottom_dim_);
-				this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight,
+				Add_feedback(this->bottom_dim_, this->feedback_gain_, bottom_data + n * this->bottom_dim_, feedback + n * this->bottom_dim_);
+				this->forward_cpu_gemm(feedback + n * this->bottom_dim_, weight,
 					top_data + n * this->top_dim_);
+				caffe_set(this->bottom_dim_, Dtype(0), feedback); // reset feedback (bottom cpu diff)
 				if (this->bias_term_) {
 					const Dtype* bias = this->blobs_[1]->cpu_data();
 					this->forward_cpu_bias(top_data + n * this->top_dim_, bias);
@@ -57,6 +58,7 @@ namespace caffe {
 		Dtype* feedback_data = feedback->mutable_cpu_data();
 		for (int i = 0; i < top.size(); ++i) {
 			Dtype* top_diff = top[i]->mutable_cpu_diff(); // top_diff is set by layer above, which must be a pooling layer (in which it is "bottom_diff")
+			const Dtype* top_data = top[i]->cpu_data();
 
 			if (this->param_propagate_down_[0] || propagate_down[i]) {
 				const Dtype* bottom_data = bottom[i]->cpu_data();
@@ -68,28 +70,31 @@ namespace caffe {
 					// bottom_diff = (top_diff X weight)
 					this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
 						bottom_diff + n * this->bottom_dim_);
-					// each top level winner should be fattened only once, so trim winners
-					// scan all winners, remove duplicate winners
-					int toparea = top[i]->count(2, 4);
-					int topnodes = top[i]->shape(1);
-					for (int k = 0; k < topnodes; k++)
-					{
-						int next = k * toparea;
-						bool found = false;
-						for (int m = 0; m < toparea; m++)
-						{
-							if (top_diff[next + m] == 1.0)
-							{
-								if (found) top_diff[next + m] = 0;
-								else found = true;
-							}
-						}
-					}
 					// Bias gradient, if necessary.
 					if (this->bias_term_ && this->param_propagate_down_[1]) {
 						Dtype* bias_diff = this->blobs_[1]->mutable_cpu_diff();
 						for (int n = 0; n < this->num_; ++n) {
 							this->backward_cpu_bias(bias_diff, top_diff + n * this->top_dim_);
+						}
+					}
+					//// each top level winner should be fattened only once, so trim winners
+					//// scan all winners, remove duplicate winners
+					int toparea = top[i]->count(2, 4);
+					int topnodes = top[i]->shape(1);
+					for (int k = 0; k < topnodes; k++)
+					{
+						int next = k * toparea;
+
+						// don't care which intra-channel node wins
+						bool found = false;
+						for (int m = 0; m < toparea; m++)
+						{
+							int n = next + m;
+							if (top_diff[n] == 1.0)
+							{
+								if (!found)	found = true;
+								else top_diff[n] = 0.0;
+							}
 						}
 					}
 					// Oja's rule: weight_diff = top_diff * (bottom_data - bottom_diff) where bottom_diff = (top_diff X weight)  <-- see above statement
